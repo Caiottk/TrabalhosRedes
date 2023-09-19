@@ -2,6 +2,8 @@ import java.io.*;
 import java.net.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 public class TCPServer {
     public static void main(String[] args) {
@@ -42,11 +44,35 @@ class ClientHandler implements Runnable {
             while ((clientMessage = in.readLine()) != null) {
                 System.out.println("Received from client: " + clientMessage);
 
-                // Process the client message (you can add your logic here)
-                String response = "Server Response: " + clientMessage.toUpperCase();
+                if ("Exit".equalsIgnoreCase(clientMessage)) {
+                    System.out.println("Client disconnected: " + clientSocket);
+                } else if ("Write".equalsIgnoreCase(clientMessage)) {
+                    String message = in.readLine();
+                    System.out.println("Received message from client: " + message);
+                    out.println("Message received.");
+                } else if ("Download".equalsIgnoreCase(clientMessage)) {
+                    String fileName = in.readLine();
+                    System.out.println("Received request to download file: " + fileName);
+                    File file = new File(fileName);
+                    if (!file.exists()) {
+                        out.println("File not found!");
+                    } else {
+                        out.println("File found!");
+                        String hash = calculateSHA256(file);
+                        out.println("SHA-256 Hash: " + hash);
+                        out.println("File Name: " + file.getName());
+                        out.println("File size: " + file.length() + "bytes.");
 
-                // Send a response back to the client
-                out.println(response);
+                        try (BufferedReader fileReader = new BufferedReader((new FileReader(fileName)))) {
+                            String line;
+                            while ((line = fileReader.readLine()) != null) {
+                                out.println(line);
+                            }
+                        }
+                    }
+                } else {
+                    out.println("Unknown command: " + clientMessage);
+                }
             }
 
         } catch (IOException e) {
@@ -58,6 +84,26 @@ class ClientHandler implements Runnable {
             } catch (IOException e) {
                 e.printStackTrace();
             }
+        }
+    }
+
+    private String calculateSHA256(File file) {
+        try (FileInputStream fis = new FileInputStream(file)) {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = fis.read(buffer)) != -1) {
+                md.update(buffer, 0, bytesRead);
+            }
+            byte[] hashBytes = md.digest();
+            StringBuilder hashStringBuilder = new StringBuilder();
+            for (byte hashByte : hashBytes) {
+                hashStringBuilder.append(String.format("%02x", 0xFF & hashByte));
+            }
+            return hashStringBuilder.toString();
+        } catch (IOException | NoSuchAlgorithmException e) {
+            e.printStackTrace();
+            return "Error calculating hash";
         }
     }
 }
