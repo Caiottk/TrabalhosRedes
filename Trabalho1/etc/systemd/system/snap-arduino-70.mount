@@ -1,0 +1,14 @@
+[Unit]
+Description=Mount unit for arduino, revision 70
+Before=snapd.service
+After=zfs-mount.service
+
+[Mount]
+What=/var/lib/snapd/snaps/arduino_70.snap
+Where=/snap/arduino/70
+Type=squashfs
+Options=nodev,ro,x-gdu.hide,x-gvfs-hide
+LazyUnmount=yes
+
+[Install]
+WantedBy=default.target multi-user.target

@@ -1,0 +1,16 @@
+[Unit]
+Description=Mount unit for zoom-client, revision 217
+After=snapd.mounts-pre.target
+Before=snapd.mounts.target
+Before=local-fs.target
+
+[Mount]
+What=/var/lib/snapd/snaps/zoom-client_217.snap
+Where=/snap/zoom-client/217
+Type=squashfs
+Options=nodev,ro,x-gdu.hide,x-gvfs-hide
+LazyUnmount=yes
+
+[Install]
+WantedBy=snapd.mounts.target
+WantedBy=multi-user.target

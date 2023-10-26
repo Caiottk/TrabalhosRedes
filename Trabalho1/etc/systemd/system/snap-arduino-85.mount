@@ -1,0 +1,16 @@
+[Unit]
+Description=Mount unit for arduino, revision 85
+After=snapd.mounts-pre.target
+Before=snapd.mounts.target
+Before=local-fs.target
+
+[Mount]
+What=/var/lib/snapd/snaps/arduino_85.snap
+Where=/snap/arduino/85
+Type=squashfs
+Options=nodev,ro,x-gdu.hide,x-gvfs-hide
+LazyUnmount=yes
+
+[Install]
+WantedBy=snapd.mounts.target
+WantedBy=multi-user.target

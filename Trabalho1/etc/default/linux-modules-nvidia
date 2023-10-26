@@ -1,0 +1,7 @@
+# If you change this file run one of the commands below to pull existing
+# installed packages into compliance:
+#
+# sudo dpkg-reconfigure linux-modules-nvidia-5.15.0-25-generic
+# sudo dpkg-reconfigure 
+
+latelink=true

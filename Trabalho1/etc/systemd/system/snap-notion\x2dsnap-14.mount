@@ -1,0 +1,14 @@
+[Unit]
+Description=Mount unit for notion-snap, revision 14
+Before=snapd.service
+After=zfs-mount.service
+
+[Mount]
+What=/var/lib/snapd/snaps/notion-snap_14.snap
+Where=/snap/notion-snap/14
+Type=squashfs
+Options=nodev,ro,x-gdu.hide,x-gvfs-hide
+LazyUnmount=yes
+
+[Install]
+WantedBy=multi-user.target
