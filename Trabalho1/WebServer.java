@@ -96,13 +96,13 @@ final class HttpRequest implements Runnable {
             contentTypeLine = "Content-type: " + contentType(fileName) + CRLF;
         } else {
             statusLine = "HTTP/1.1 404 Not Found" + CRLF;
-            contentTypeLine = "Content-type: /resources/html/home.html" + CRLF;
+            // contentTypeLine = "Content-type: /resources/html/"+ fileName + CRLF;
             entityBody = "<HTML>" + "<HEAD><TITLE>Not Found</TITLE></HEAD>" + "<BODY>Not Found</BODY></HTML>";
         }
         // Send the status line.
         output.write(statusLine.getBytes());
         // Send the content type line.
-        output.write(contentTypeLine.getBytes());
+        // output.write(contentTypeLine.getBytes());
         // Send a blank line to indicate the end of the header lines.
         output.write(CRLF.getBytes());
         // Send the entity body.
