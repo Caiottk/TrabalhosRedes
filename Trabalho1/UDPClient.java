@@ -2,66 +2,76 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 
-/*Server to process ping requests over UDP */
+/*Client to generate a ping requests over UDP */
 
-public class UDPServer {
-    private static final double LOSS_RATE = 0.3;
-    private static final int AVERAGE_DELAY = 100; // milliseconds
+public class UDPClient {
+    private static final int TIMEOUT = 1000; // milliseconds
 
     public static void main(String[] args) {
         // Get command line argument.
-        if (args.length != 1) {
-            System.out.println("Required arguments: port");
+        if (args.length != 2) {
+            System.out.println("Required arguments: host port");
             return;
         }
-        int port = Integer.parseInt(args[0]);
-
+        // Get the port number to access.
+        int port = Integer.parseInt(args[1]);
+        // Server to ping
+        Inet4Address server;
         try {
-
-            // Construct a random number generator for use in simulating
-            // packet loss and network delay.
-            Random random = new Random();
+            server = (Inet4Address) Inet4Address.getByName(args[0]);
 
             // Create a datagram socket for receiving and sending UDP packets
-            // through the port specified on the command line.
-            DatagramSocket socket = new DatagramSocket(port);
+            DatagramSocket socket = new DatagramSocket();
 
-            // Processing loop.
-            while (true) {
+            int sequence_number = 0;
+            while (sequence_number < 10) {
+
+                // Timestamp
+                Date date = new Date();
+                long time_send = date.getTime();
+
+                // Create string to send, and transfer it to a byte array.
+                String str_send = "PING " + sequence_number + " " + time_send + " \r\n";
+                byte[] buf = new byte[1024];
+                buf = str_send.getBytes();
+
                 // Create a datagram packet to hold incomming UDP packet.
-                DatagramPacket request = new DatagramPacket(new byte[1024], 1024);
+                DatagramPacket request = new DatagramPacket(buf, buf.length, server, port);
 
-                // Block until the host receives a UDP packet.
-                socket.receive(request);
+                try {
+                    // Send the ping request.
+                    socket.send(request);
+                    // Set a receive timeout, 1000 milliseconds.
+                    socket.setSoTimeout(TIMEOUT);
 
-                // Print the recieved data.
-                printData(request);
+                    // Create a datagram packet to hold incomming UDP packet.
+                    DatagramPacket reply = new DatagramPacket(new byte[1024], 1024);
 
-                // Decide whether to reply, or simulate packet loss.
-                if (random.nextDouble() < LOSS_RATE) {
-                    System.out.println("   Reply not sent.");
-                    continue;
+                    // Block until the host receives a UDP packet.
+                    socket.receive(reply);
+
+                    date = new Date();
+                    long time_receveid = date.getTime();
+                    // Print the recieved data.
+                    printData(reply, time_receveid - time_send);
+
+                } catch (IOException e) {
+                    System.out.println("Timeout for packet " + sequence_number);
                 }
 
-                // Simulate network delay.
-                Thread.sleep((int) (random.nextDouble() * 2 * AVERAGE_DELAY));
-
-                // Send reply.
-                InetAddress clientHost = request.getAddress();
-                int clientPort = request.getPort();
-                byte[] buf = request.getData();
-                DatagramPacket reply = new DatagramPacket(buf, buf.length, clientHost, clientPort);
-                socket.send(reply);
-
-                System.out.println("   Reply sent.");
+                // Sequence number of the last ping packet received.
+                sequence_number++;
             }
-        } catch (Exception e) {
-            System.out.println(e);
+        } catch (UnknownHostException e) {
+            System.out.println("Host not found");
+        } catch (SocketException e) {
+            System.out.println("Socket error");
+
         }
     }
 
-    /* Print ping data to the standard output stream */
-    private static void printData(DatagramPacket request) throws Exception {
+    /* Print ping data to the standard output stream. */
+    private static void printData(DatagramPacket request, long delayTime) throws IOException {
         // Obtain references to the packet's array of bytes.
         byte[] buf = request.getData();
 
@@ -82,10 +92,16 @@ public class UDPServer {
         String line = br.readLine();
 
         // Print host address and data received from it.
-        System.out.println(
-                "Received from " +
-                        request.getAddress().getHostAddress() +
-                        ": " +
-                        new String(line));
+        System.out.println("Received from "
+                + request.getAddress().getHostAddress()
+                + ": " + new String(line)
+                + " Delay: "
+                + delayTime
+                + "ms");
     }
+
+    private static void ReliableUDPSender(){
+        
+    }
+
 }
