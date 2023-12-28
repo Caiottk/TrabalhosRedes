@@ -1,6 +1,9 @@
 import java.io.*;
 import java.net.*;
 import java.util.*;
+
+import javax.xml.crypto.Data;
+
 import java.security.*;
 
 /*Server to process ping requests over UDP */
@@ -8,6 +11,7 @@ import java.security.*;
 public class UDPServer {
     private static final double LOSS_RATE = 0.3;
     private static final int AVERAGE_DELAY = 100; // milliseconds
+    private static final int BUFFER_SIZE = 1024; // buffer size for packet transfer
 
     public static void main(String[] args) {
         // Get command line argument.
@@ -50,11 +54,28 @@ public class UDPServer {
                 // Send reply.
                 InetAddress clientHost = request.getAddress();
                 int clientPort = request.getPort();
-                byte[] buf = request.getData();
-                DatagramPacket reply = new DatagramPacket(buf, buf.length, clientHost, clientPort);
-                socket.send(reply);
 
-                System.out.println("   Reply sent.");
+                // Extract file name from request, message format: "GET <file_name>"
+                String requestMessage = new String(request.getData()).trim();
+                if (requestMessage.startsWith("GET")) {
+                    String[] requestParts = requestMessage.split(" ");
+                    if (requestParts.length == 2) {
+                        String filePath = requestParts[1].substring(1); // remove the first '/' character
+                        File file = new File(filePath);
+
+                        if (file.exists()) {
+                            // Send file in chunks of 1024 bytes
+                            transferData(file, socket, clientHost, clientPort);
+                        } else {
+                            // Send error message
+                            String errorMessage = "File not found";
+                            DatagramPacket errorReply = new DatagramPacket(errorMessage.getBytes(),
+                                    errorMessage.length(), clientHost, clientPort);
+                            socket.send(errorReply);
+                            System.out.println("Reply sent.");
+                        }
+                    }
+                }
             }
         } catch (Exception e) {
             System.out.println(e);
@@ -90,35 +111,45 @@ public class UDPServer {
                         new String(line));
     }
 
-    public static byte[] calculateChecksum(String filePath) throws IOException, NoSuchAlgorithmException {
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
-        FileInputStream fis = new FileInputStream(filePath);
-        byte[] dataBytes = new byte[1024];
-        int nread = 0;
-        while ((nread = fis.read(dataBytes)) != -1) {
-            md.update(dataBytes, 0, nread);
+    private String calculateSHA256(File file) {
+        try (FileInputStream fis = new FileInputStream(file)) {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = fis.read(buffer)) != -1) {
+                md.update(buffer, 0, bytesRead);
+            }
+            byte[] hashBytes = md.digest();
+            StringBuilder hashStringBuilder = new StringBuilder();
+            for (byte hashByte : hashBytes) {
+                hashStringBuilder.append(String.format("%02x", 0xFF & hashByte));
+            }
+            return hashStringBuilder.toString();
+        } catch (IOException | NoSuchAlgorithmException e) {
+            e.printStackTrace();
+            return "Error calculating hash";
         }
-        fis.close();
-        return md.digest();
     }
 
-    // https://stackoverflow.com/questions/9655181/how-to-convert-a-byte-array-to-a-hex-string-in-java
-    public static String bytesToHex(byte[] bytes) {
-        StringBuffer result = new StringBuffer();
-        for (byte byt : bytes) result.append(Integer.toString((byt & 0xff) + 0x100, 16).substring(1));
-        return result.toString();
+    private String encodeBase64(String in) {
+        return Base64.getEncoder().encodeToString(in.getBytes());
     }
 
-    public static void transferData(File file, DatagramSocket socket, InetAddress clientHost, int clientPort) throws IOException {
+    public static void transferData(File file, DatagramSocket socket, InetAddress clientHost, int clientPort)
+            throws IOException {
         FileInputStream fis = new FileInputStream(file);
-        byte[] buffer = new byte[1024];
-        int nread = 0;
-        int numPackets = (int) Math.ceil(file.length() / 1024.0);
+        byte[] buffer = new byte[BUFFER_SIZE];
+        int numPackets = (int) Math.ceil(file.length() / (double) BUFFER_SIZE);
         int numPacketsSent = 0;
-        while ((nread = fis.read(buffer)) != -1 && numPacketsSent < numPackets) {
-            DatagramPacket reply = new DatagramPacket(buffer, buffer.length, clientHost, clientPort);
+        while (numPacketsSent < numPackets) {
+            int bytesRead = fis.read(buffer);
+            if (bytesRead == -1)
+                break;
+
+            DatagramPacket reply = new DatagramPacket(buffer, bytesRead, clientHost, clientPort);
             socket.send(reply);
-            System.out.println("Sent packet " + numPacketsSent++ + reply.getData().toString());
+            System.out.println("Sent packet " + numPacketsSent++ + "/" + numPackets);
+            numPacketsSent++;
         }
         fis.close();
     }
